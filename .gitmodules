@@ -1,0 +1,15 @@
+[submodule "Dex-Mini/lib/forge-std"]
+	path = Dex-Mini/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "Dex-Mini/lib/openzeppelin-contracts"]
+	path = Dex-Mini/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "Dex-Mini-v4-Hook/lib/v4-core"]
+	path = Dex-Mini-v4-Hook/lib/v4-core
+	url = https://github.com/Uniswap/v4-core
+[submodule "Dex-Mini-v4-Hook/lib/openzeppelin-contracts"]
+	path = Dex-Mini-v4-Hook/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "Dex-Mini-v4-Hook/lib/v3-periphery"]
+	path = Dex-Mini-v4-Hook/lib/v3-periphery
+	url = https://github.com/Uniswap/v3-periphery
