@@ -2,30 +2,36 @@
 
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Solidity v0.8.24](https://img.shields.io/badge/Solidity-0.8.24-blue.svg)](https://soliditylang.org)
-[![Foundry CI](https://github.com/DexMini/Dex-Mini-MEV-Hook/actions/workflows/ci.yml/badge.svg)](https://github.com/DexMini/Dex-Mini-MEV-Hook/actions)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](http://makeapullrequest.com)
+[![Docs](https://img.shields.io/badge/docs-latest-blue)](https://github.com/DexMini/Dex-Mini-MEV-Hook/wiki)
 
-<div align="center">
-  <img src="https://raw.githubusercontent.com/DexMini/Dex-Mini-MEV-Hook/main/assets/protection-hook-diagram.png" width="600" alt="MEV Protection Mechanism Diagram">
-</div>
+> *Protect your liquidity pools from MEV attacks with intelligent, dynamic fee adjustments*
 
-## 📖 Table of Contents
-- [✨ Features](#-features)
+## 📖 Quick Navigation
+<details>
+<summary>Click to expand</summary>
+
+- [🌟 Features](#-features)
+- [🎯 User Experience](#-user-experience)
 - [🏗️ Architecture](#%EF%B8%8F-architecture)
 - [📦 Installation](#-installation)
 - [🚀 Deployment](#-deployment)
 - [🔧 Configuration](#-configuration)
-- [📈 Performance Metrics](#-performance-metrics)
+- [📊 Performance](#-performance)
 - [🛠️ Development](#%EF%B8%8F-development)
 - [📜 License](#-license)
 
-## ✨ Features
+</details>
+
+## 🌟 Features
+
 ### 🛡️ MEV Protection System
 | Feature                | Description                                                                 |
 |------------------------|-----------------------------------------------------------------------------|
 | Adaptive Fee Engine    | 📈 Real-time fee adjustments based on market volatility and swap size       |
-| Cooldown Mechanism      | ⏳ Configurable time-lock between fee updates (30s default)                |
-| Volatility Oracle       | 📊 EMA-based price movement tracking (9-period exponential smoothing)     |
-| Swap Size Analyzer      | 🔍 EMA-based analysis of transaction sizes                                  |
+| Cooldown Mechanism     | ⏳ Configurable time-lock between fee updates (30s default)                 |
+| Volatility Oracle      | 📊 EMA-based price movement tracking (9-period exponential smoothing)       |
+| Swap Size Analyzer     | 🔍 EMA-based analysis of transaction sizes                                  |
 
 ### 🚀 Key Advantages
 - ⚡ Fully compatible with Uniswap V4 hook architecture
@@ -33,36 +39,80 @@
 - 📉 Progressive fee scaling from 0.05% to 1.0%
 - 🛡️ Front-running protection through dynamic pricing
 
-## 🏗️ Architecture
+## 🎯 User Experience
 
-```mermaid
-graph TD
-    A[Pool Manager] --> B[MEV Protection Hook]
-    B --> C{Before Swap}
-    C --> D[Check Cooldown]
-    C --> E[Calculate Volatility]
-    C --> F[Analyze Swap Size]
-    D --> G[Update Fee State]
-    E --> G
-    F --> G
-    G --> H[Set New Fee]
+### For Liquidity Providers
+1. **Pool Creation & Integration**
+   ```mermaid
+   graph LR
+       A[Create Pool] --> B[Enable Hook]
+       B --> C[Initial Liquidity]
+       C --> D[Monitor Metrics]
+   ```
+   - Deploy pool with MEV Protection enabled
+   - Add initial liquidity
+   - Monitor fee generation and pool metrics
+
+2. **Benefits**
+   - 💰 Higher fee capture during volatile periods
+   - 🛡️ Protection against sandwich attacks
+   - 📊 Transparent fee adjustment mechanism
+
+### For Traders
+1. **Trading Experience**
+   ```mermaid
+   graph LR
+       A[Submit Trade] --> B[Hook Checks]
+       B --> C[Fee Calculation]
+       C --> D[Execute Trade]
+   ```
+   - Submit swap through standard Uniswap interface
+   - Hook automatically calculates optimal fee
+   - Trade executes with MEV protection
+
+2. **Advantages**
+   - ⚡ Fast execution during normal conditions
+   - 💸 Fair pricing based on market conditions
+   - 🔒 Protection against front-running
+
+### Real-World Example
+```solidity
+// Example of a protected swap
+function swapExactInputSingle(
+    address tokenIn,
+    address tokenOut,
+    uint24 poolFee,
+    uint256 amountIn
+) external returns (uint256 amountOut) {
+    // Hook automatically adjusts fee based on:
+    // 1. Current market volatility
+    // 2. Swap size relative to pool
+    // 3. Recent trading activity
+}
 ```
+
+## 🏗️ Architecture
 
 ### Core Components
 1. **Fee State Manager**  
-   `struct FeeState` tracking:
-   - `currentTick`: Current pool price tick
-   - `volatilityEMA`: 9-period EMA of price changes
-   - `swapSizeEMA`: 9-period EMA of swap values
-   - `lastUpdated`: Timestamp of last update
-
-2. **Dynamic Fee Calculator**  
    ```solidity
-   function calculateFee(uint256 volatility, uint256 swapSize) 
-       internal pure returns (uint24) {
-       uint256 rawFee = MIN_FEE + (volatility * swapSize * FEE_RATE) / SCALER;
-       return uint24(rawFee > MAX_FEE ? MAX_FEE : rawFee);
+   struct FeeState {
+       int24 currentTick;      // Current pool tick
+       uint64 lastUpdated;     // Last update timestamp
+       uint128 volatilityEMA;  // Price volatility EMA
+       uint128 swapSizeEMA;    // Order size EMA
+       uint64 lastBlock;       // Last update block
    }
+   ```
+
+2. **Protection Mechanism**
+   ```mermaid
+   graph TD
+       A[Incoming Swap] --> B{Check Cooldown}
+       B -->|Active| C[Use Current Fee]
+       B -->|Inactive| D[Calculate New Fee]
+       D --> E[Update State]
+       E --> F[Apply Fee]
    ```
 
 ## 📦 Installation
@@ -79,51 +129,78 @@ forge build
 ```
 
 ## 🚀 Deployment
-```bash
-forge create --rpc-url <RPC_ENDPOINT> \
-    --constructor-args <POOL_MANAGER_ADDRESS> \
-    --private-key <DEPLOYER_KEY> \
-    src/MEVProtectionHook.sol:MEVProtectionHook
-```
 
-## 🔧 Configuration
-```solidity
-// foundry.toml
-[profile.default]
-src = "src"
-out = "out"
-libs = ["lib"]
-remappings = [
-    "@uniswap/v4-core/=lib/v4-core",
-    "@uniswap/v4-periphery/=lib/v4-periphery",
-    "solmate/=lib/solmate/src/"
-]
+### Prerequisites
+- Ethereum RPC endpoint
+- Deployer account with ETH
+- Pool Manager contract address
 
-[fmt]
-line_length = 100
-tab_width = 4
-```
+### Steps
+1. **Deploy Contract**
+   ```bash
+   forge create --rpc-url <RPC_ENDPOINT> \
+       --constructor-args <POOL_MANAGER_ADDRESS> \
+       --private-key <DEPLOYER_KEY> \
+       src/MEVProtectionHook.sol:MEVProtectionHook
+   ```
 
-## 📈 Performance Metrics
-| Parameter               | Value       | Description                          |
-|-------------------------|-------------|--------------------------------------|
-| Base Cooldown           | 30 seconds  | Minimum time between fee updates     |
-| Volatility Window       | 9 periods   | EMA calculation window               |
-| Min Fee                 | 0.05%       | Floor rate for swaps                 |
-| Max Fee                 | 1.00%       | Ceiling rate for swaps               |
-| Fee Capture Rate        | 65%         | MEV profit conversion ratio          |
+2. **Verify Contract**
+   ```bash
+   forge verify-contract --chain-id 1 \
+       <DEPLOYED_ADDRESS> \
+       src/MEVProtectionHook.sol:MEVProtectionHook
+   ```
+
+## 📊 Performance
+
+### Metrics & Benchmarks
+| Parameter               | Value       | Impact                              |
+|------------------------|-------------|-------------------------------------|
+| Base Cooldown          | 30 seconds  | Prevents fee manipulation           |
+| Volatility Window      | 9 periods   | Balanced market responsiveness      |
+| Min Fee               | 0.05%       | Ensures minimum protocol revenue    |
+| Max Fee               | 1.00%       | Caps trader costs                   |
+| Fee Capture Rate      | 65%         | Optimal MEV prevention              |
+
+### Gas Optimization
+- Efficient storage packing
+- Minimal state updates
+- Optimized math operations
 
 ## 🛠️ Development
+
+### Local Testing
 ```bash
-# Run tests
+# Run all tests
 forge test -vvv
 
-# Generate coverage report
-forge coverage --report lcov
+# Run specific test
+forge test --match-test testDynamicFeeAdjustment -vvv
 
+# Generate coverage
+forge coverage --report lcov
+```
+
+### Code Style
+```bash
 # Format code
 forge fmt
+
+# Check linting
+forge lint
 ```
 
 ## 📜 License
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+---
+
+<div align="center">
+
+**Built with 💜 for the DeFi Community**
+
+[Documentation](https://github.com/DexMini/Dex-Mini-MEV-Hook/wiki) | 
+[Report Bug](https://github.com/DexMini/Dex-Mini-MEV-Hook/issues) | 
+[Request Feature](https://github.com/DexMini/Dex-Mini-MEV-Hook/issues)
+
+</div>
