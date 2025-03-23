@@ -1,4 +1,4 @@
-# 🛡️ MEV Protection Hook | Uniswap V4 Dynamic Fee Module
+# 🛡️ MEV Protection Hook
 
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Solidity v0.8.24](https://img.shields.io/badge/Solidity-0.8.24-blue.svg)](https://soliditylang.org)
