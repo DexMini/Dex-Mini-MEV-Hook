@@ -15,8 +15,6 @@ docs/
 
 # Cursor
 .cursor/
-foundry-best-practices.mdc
-github-commit-best-practices.mdc
-playwright-tests.mdc
-readme-best-practices.mdc
+
+
 
