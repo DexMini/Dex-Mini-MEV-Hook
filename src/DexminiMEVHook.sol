@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity =0.8.26;
 
 import {BaseHook} from "@uniswap/v4-periphery/src/base/hooks/BaseHook.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
-import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
-import {Pool} from "@uniswap/v4-core/src/libraries/Pool.sol";
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "@uniswap/v4-core/src/types/BeforeSwapDelta.sol";
 import {Slot0} from "@uniswap/v4-core/src/types/Slot0.sol";
@@ -27,29 +25,35 @@ import {Slot0} from "@uniswap/v4-core/src/types/Slot0.sol";
 //                                                                          //
 ////////////////////////////////////////////////////////////////////////////*/
 
-contract MEVProtectionHook is BaseHook {
+contract DexminiMEVHook is BaseHook {
     using FixedPointMathLib for uint256;
     using PoolIdLibrary for PoolKey;
 
-    uint256 public constant BASE_MEV_COOLDOWN_TIME = 30;
-    uint256 public constant BASE_MEV_COOLDOWN_BLOCKS = 2;
-    uint24 public constant MIN_FEE = 5; // 0.05%
-    uint24 public constant MAX_FEE = 100; // 1.0%
-    uint24 public constant FEE_CAPTURE_RATE = 650; // 65% in basis points
-    uint256 public constant FEE_SCALING_FACTOR = 1e12;
+    // Configuration parameters
+    uint256 public constant BASE_MEV_COOLDOWN_TIME = 30; // seconds
+    uint256 public constant BASE_MEV_COOLDOWN_BLOCKS = 2; // blocks
+    uint24 public constant MIN_FEE = 500; // 0.05% (in hundredths of a basis point)
+    uint24 public constant MAX_FEE = 10000; // 1.0% (in hundredths of a basis point)
+    uint24 public constant FEE_CAPTURE_RATE = 6500; // 65% in hundredths of a basis point
+    uint256 public constant FEE_SCALING_FACTOR = 1e18; // Increased precision
+    uint256 public constant SMALL_SWAP_THRESHOLD = 1e18; // 1 token (18 decimals)
 
+    // Fee state tracking
     struct FeeState {
         int24 currentTick;
-        uint64 lastUpdated;
-        uint128 volatilityEMA;
-        uint128 swapSizeEMA;
-        uint64 lastBlock;
+        uint64 lastUpdatedTimestamp;
+        uint64 lastUpdatedBlock;
+        uint256 volatilityEMA; // Use uint256 to avoid truncation
+        uint256 swapSizeEMA; // Use uint256 to avoid truncation
     }
 
-    mapping(bytes32 => FeeState) public feeStates;
+    mapping(PoolId => FeeState) public feeStates;
 
-    constructor(IPoolManager _poolManager) BaseHook(_poolManager) {}
+    constructor(IPoolManager _poolManager) BaseHook(_poolManager) {
+        validateHookAddress(this);
+    }
 
+    // Define hook permissions
     function getHookPermissions()
         public
         pure
@@ -75,6 +79,7 @@ contract MEVProtectionHook is BaseHook {
             });
     }
 
+    // Main hook logic executed before swaps
     function beforeSwap(
         address, // sender unused
         PoolKey calldata key,
@@ -86,50 +91,30 @@ contract MEVProtectionHook is BaseHook {
         onlyPoolManager
         returns (bytes4, BeforeSwapDelta, uint24)
     {
-        bytes32 poolId = keccak256(abi.encode(key));
+        PoolId poolId = key.toId();
         FeeState storage fee = feeStates[poolId];
 
-        // Adaptive cooldown with sigmoid decay
-        uint256 cooldownTime = BASE_MEV_COOLDOWN_TIME +
-            (fee.volatilityEMA * BASE_MEV_COOLDOWN_TIME) /
-            (1e6 + fee.volatilityEMA);
-
-        if (block.timestamp < fee.lastUpdated + cooldownTime) {
-            revert("MEV cooldown active");
-        }
-
-        // Extract amountSpecified into a local variable to reduce stack usage
         int256 amtSpec = params.amountSpecified;
+        uint256 swapSize = amtSpec > 0 ? uint256(amtSpec) : uint256(-amtSpec);
 
-        // Declare computedFee variable in outer scope
-        uint24 computedFee;
-        {
-            // Begin inner block to reduce stack usage
-            address poolAddress = IPoolManagerExtended(address(poolManager))
-                .pools(PoolId.unwrap(key.toId()));
-            (, int24 currentTick, , , ) = IUniswapV4Pool(poolAddress).slot0();
-            int24 tickDiff = _abs(currentTick - fee.currentTick);
-            uint128 newVol = (fee.volatilityEMA *
-                9 +
-                uint128(uint24(tickDiff))) / 10;
-            uint128 swapSize = uint128(
-                amtSpec > 0 ? uint256(amtSpec) : uint256(-amtSpec)
+        // Bypass cooldown for small swaps
+        if (swapSize >= SMALL_SWAP_THRESHOLD) {
+            uint256 cooldownTime = _calculateAdaptiveCooldown(
+                fee.volatilityEMA
             );
-            uint128 newSwap = (fee.swapSizeEMA * 9 + swapSize) / 10;
-            uint256 mevOpportunity = uint256(newVol) * swapSize;
-            uint256 targetFee = MIN_FEE +
-                (mevOpportunity * FEE_CAPTURE_RATE) /
-                FEE_SCALING_FACTOR;
-            computedFee = uint24(targetFee > MAX_FEE ? MAX_FEE : targetFee);
-
-            // Update fee state using internal function to reduce stack usage
-            _updateFeeState(poolId, currentTick, newVol, newSwap);
+            if (_isInCooldown(fee, cooldownTime)) {
+                revert("MEV cooldown active");
+            }
         }
-        // End of inner block; heavy local variables are now out of scope.
 
-        // Update the fee in the pool manager
-        IPoolManagerExtended(address(poolManager)).setFee(key, computedFee);
+        (uint24 computedFee, int24 tickDiff) = _calculateDynamicFee(
+            key,
+            fee,
+            swapSize
+        );
+        _updateFeeState(poolId, fee, tickDiff, swapSize);
 
+        // Return the computed fee without calling setFee
         return (
             IHooks.beforeSwap.selector,
             BeforeSwapDeltaLibrary.ZERO_DELTA,
@@ -137,22 +122,71 @@ contract MEVProtectionHook is BaseHook {
         );
     }
 
-    function _abs(int24 value) internal pure returns (int24) {
-        return value >= 0 ? value : -value;
+    // Internal helper functions
+
+    function _calculateAdaptiveCooldown(
+        uint256 volatilityEMA
+    ) internal pure returns (uint256) {
+        return
+            BASE_MEV_COOLDOWN_TIME +
+            (volatilityEMA * BASE_MEV_COOLDOWN_TIME) /
+            (1e6 + volatilityEMA);
+    }
+
+    function _isInCooldown(
+        FeeState storage fee,
+        uint256 cooldownTime
+    ) internal view returns (bool) {
+        return
+            block.timestamp < fee.lastUpdatedTimestamp + cooldownTime ||
+            block.number < fee.lastUpdatedBlock + BASE_MEV_COOLDOWN_BLOCKS;
+    }
+
+    function _calculateDynamicFee(
+        PoolKey calldata key,
+        FeeState storage fee,
+        uint256 swapSize
+    ) internal view returns (uint24 computedFee, int24 tickDiff) {
+        // Get current tick directly from pool manager
+        (, int24 currentTick, , , ) = IUniswapV4Pool(address(poolManager))
+            .slot0();
+
+        tickDiff = _abs(currentTick - fee.currentTick);
+
+        // Calculate EMAs with unchecked arithmetic for gas optimization
+        unchecked {
+            uint256 newVol = (fee.volatilityEMA *
+                9 +
+                uint256(uint24(tickDiff))) / 10;
+            uint256 newSwap = (fee.swapSizeEMA * 9 + swapSize) / 10;
+            uint256 mevOpportunity = newVol * newSwap;
+
+            uint256 targetFee = MIN_FEE +
+                (mevOpportunity * FEE_CAPTURE_RATE) /
+                FEE_SCALING_FACTOR;
+            computedFee = uint24(targetFee > MAX_FEE ? MAX_FEE : targetFee);
+        }
     }
 
     function _updateFeeState(
-        bytes32 poolId,
-        int24 currentTick,
-        uint128 newVol,
-        uint128 newSwap
+        PoolId poolId,
+        FeeState storage fee,
+        int24 tickDiff,
+        uint256 swapSize
     ) internal {
-        FeeState storage f = feeStates[poolId];
-        f.currentTick = currentTick;
-        f.lastUpdated = uint64(block.timestamp);
-        f.volatilityEMA = newVol;
-        f.swapSizeEMA = newSwap;
-        f.lastBlock = uint64(block.number);
+        unchecked {
+            fee.volatilityEMA =
+                (fee.volatilityEMA * 9 + uint256(uint24(tickDiff))) /
+                10;
+            fee.swapSizeEMA = (fee.swapSizeEMA * 9 + swapSize) / 10;
+        }
+        fee.currentTick += int24(tickDiff); // Track cumulative tick movement
+        fee.lastUpdatedTimestamp = uint64(block.timestamp);
+        fee.lastUpdatedBlock = uint64(block.number);
+    }
+
+    function _abs(int24 value) internal pure returns (int24) {
+        return value >= 0 ? value : -value;
     }
 }
 
@@ -167,11 +201,4 @@ interface IUniswapV4Pool {
             uint16 observationCardinality,
             uint16 observationCardinalityNext
         );
-}
-
-interface IPoolManagerExtended is IPoolManager {
-    // Getter for the public mapping 'pools'
-    function pools(bytes32 poolId) external view returns (address);
-    // Extension: set the fee for a pool
-    function setFee(PoolKey calldata key, uint24 fee) external;
 }

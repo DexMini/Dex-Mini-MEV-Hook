@@ -1,0 +1,54 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Your rule content
+
+- Write unit tests for components and functionality
+- Create test cases first, outlining expected behavior and edge cases
+- Iterate until tests pass, covering both positive and negative scenarios
+- Document successful test results in .md files
+- Implement new functionalities based on test insights
+- Continuously refer to test cases to ensure all requirements are met
+
+# Guidelines for writing general testing
+Write unit tests for some of the components and functionality. Write Test Cases First with the outline expected behavior and edge cases then iterate until tests pass. Ensure you cover both positive and negative test scenarios. Each successful test result needs to be in a .md file outlining what the test was about and the result of it. Once the test passes, gradually implement the new functionalities from the lessons of the test  while continuously referring to your test cases to ensure you meet all requirements. 
+
+# Guidelines for writing test with Forge
+Write Test Cases First with the outline expected behavior and edge cases then iterate until tests pass. Ensure you cover both positive and negative test scenarios. Each successful test result needs to be in a .md file outlining what the test was about and the result of it. Once the test passes, gradually implement the new functionalities from the lessons of the test  while continuously referring to your test cases to ensure you meet all requirements. 
+Design First:
+Begin by drafting test cases that outline the expected behavior and identify edge cases. Consider both positive and negative scenarios.
+Document Results:
+For each successful test, create a corresponding .md file that details:
+The test’s objective
+The expected outcome
+The actual result
+Iterative Implementation:
+Use the insights from your tests to incrementally implement new functionalities. Continuously refer to your test cases to ensure that every new feature aligns with the outlined requirements.
+
+# Guidelines for Compiling with Forge
+Compile the code first and iterate until the code is compiled. Each failed compile will guide you on what needs fixing. Refactor only the contract code based on compile results while maintaining the core logic and functionality and optimize for gas efficiency. Ensure code readability and maintainability.  
+Compile Early and Often:
+Start by compiling your code to catch errors early. Each failed compilation should guide you to the specific fixes needed.
+Focused Refactoring:
+When addressing compilation issues, adjust only the necessary parts of your contract code. Keep the core logic intact while refactoring.
+Optimization Priorities:
+Strive for gas efficiency without sacrificing code readability and maintainability. Regularly review and optimize your code as you progress.
+
+# Guidelines for Uniswap related backtesting forge test plan
+
+Conduct fuzz testing and property-based testing for unexpected inputs. Reflect on 5-7 different possible sources of the problems, distill those down to 1-2 most likely sources, and then add logs to validate your assumptions before we move onto implementing the actual code fix. 
+Implement differential testing against Uniswap v4 reference contracts.
+Verify proper hook execution and ensure state consistency after transactions.
+Simulate user interactions, including adding/removing liquidity, swapping, and interacting with hooks. Follow the journey of liquidity providers to ensure no loss of funds due to unexpected behaviors.
+find relevant univ3 pool that you want to test against
+use/build an indexer depending on your needs (subgraph or something more custom like ponder.sh)
+index all relevant data over a certain time period (few weeks or few months, and swaps/liquidity changes depending on what you care about)
+also track starting state of that uni v3 pool before your indexing period (total liquidity available at starting point and each LP position that exists)
+run local eth node (anvil)
+deploy uni v4, set up a couple mock tokens, create pool with your hook
+recreate the initial state of the v3 pool by adding all LP positions as required
+then, for each txn youve indexed in your time period, replay them one-by-one against the anvil node - track relevant data you care about that your hook is supposed to improve
+

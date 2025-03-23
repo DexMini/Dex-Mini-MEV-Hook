@@ -1,0 +1,12 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Guidelines for Playwright E2E tests
+⁃ Playwright E2E tests, bring up browser, emulate users actions, check for the UI changes to make sure that we are validating changes from the users perspective rather than core functionality perspective.
+⁃ Implement. Comprehensive end to end test based on the functionality in questions. test actual functionality rather than unit tests in vain
+⁃ When you see unreasonable tests or tests that could potentially be flaky or useless, make sure to call it out in the response.
+⁃ All test should have a clear .md file explaining what the test tested about and how it went around it and what was the result of it.
+⁃ Iterate until the test passes

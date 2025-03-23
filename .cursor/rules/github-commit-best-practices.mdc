@@ -1,0 +1,67 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# GitHub Commit Guidelines
+
+## Commit Message Format
+All commit messages MUST follow this structure:
+
+## Types
+Use these lowercase prefixes to categorize your commits:
+
+| Type       | Description                                          | Example                                         |
+|------------|------------------------------------------------------|------------------------------------------------|
+| `fix`      | Bug fixes                                            | `fix: resolve null pointer in user auth flow`   |
+| `feat`     | New features                                         | `feat: add dark mode support`                   |
+| `perf`     | Performance improvements                             | `perf: optimize database queries`               |
+| `docs`     | Documentation changes                                | `docs: update API authentication instructions`  |
+| `style`    | Formatting, white-space, or styling changes          | `style: apply consistent indentation`           |
+| `refactor` | Code refactoring without functionality changes       | `refactor: extract user validation into module` |
+| `test`     | Adding or correcting tests                           | `test: add unit tests for login component`      |
+| `chore`    | Maintenance tasks, dependencies, build processes     | `chore: update npm dependencies`                |
+| `ci`       | Changes to CI configuration or scripts               | `ci: configure GitHub Actions workflow`         |
+| `build`    | Changes to build system or external dependencies     | `build: switch bundler to vite`                 |
+| `revert`   | Revert a previous commit                             | `revert: undo commit abc1234`                   |
+
+## Best Practices
+
+### Write Clear and Purposeful Messages
+- Use imperative, present tense: "add" not "added" or "adds"
+- Limit the first line to 72 characters or less
+- Capitalize only the type prefix, not the first word after the colon
+- Don't end the subject line with a period
+
+### Structure Logical Commits
+- Make each commit represent a single logical change
+- Avoid combining unrelated changes in a single commit
+- Keep commits small and focused to simplify code review
+
+### Reference Issues Properly
+- Use issue/ticket numbers in the footer section of your commit message
+- Format: `Closes #123` or `Relates to #456`
+- Multiple issues can be referenced: `Closes #123, #124, #125`
+
+### Provide Context When Needed
+- Add a commit body (separated from subject by a blank line) for complex changes
+- Explain "why" not just "what" when the change isn't self-evident
+- Include links to relevant resources or discussions
+
+## Examples
+
+Good commit messages:
+feat: implement user authentication with JWT
+
+Add JSON Web Token authentication to secure API endpoints.
+Includes token generation, validation, and refresh mechanisms.
+
+Closes #142
+
+fix: prevent race condition in payment processing
+
+Resolves timing issue when multiple payment attempts occur simultaneously.
+
+Relates to #231
+
+
